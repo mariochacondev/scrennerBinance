@@ -4,6 +4,8 @@ import time
 from clients.binance import BinanceWs
 from interface.styling import *
 from interface.screener_component import Screener
+import talib
+import numpy
 
 
 class Root(tk.Tk):
@@ -47,17 +49,26 @@ class Root(tk.Tk):
         def twap(average_price):
             return round(sum(average_price) / len(average_price), 4)
 
+        def fibo_382(high, low):
+            return round((float(high) - ((float(high) - float(low)) * 0.382)), 3)
+
+        def bbs(closes_string):
+            upperband, middleband, lowerband = talib.BBANDS(numpy.array(closes_string, dtype=float),
+                                                            timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
+            return upperband, middleband, lowerband
+
         for symbol in self.binance.symbols:
             data = self.binance.market_data[symbol]
             self.binance.run(symbol)
 
             if symbol not in self._screener_frame.symbols:
                 if data['high'] is not None:
-                    row_data = [data['close'], data['high'], data['low'], data['open'], ""]
+                    row_data = [data['close'], data['high'], data['low'], data['open'], "", "", ""]
                     tree.insert("", tk.END, symbol, text=symbol.upper(), values=row_data)
                     self._screener_frame.symbols.append(symbol)
 
             if data['is_closed'] is True:
+                tree.set(symbol, column='fibo_382', value=fibo_382(data['high'], data['low']))
                 if len(data['closes']) <= 2:
                     data['closes'].append(data['close'])
                 if len(data['highs']) <= 2:
@@ -68,11 +79,21 @@ class Root(tk.Tk):
                     data['opens'].append(data['open'])
 
             if len(data['closes']) and len(data['highs']) and len(data['lows']) and len(data['opens']) == max_samples:
+                upperband, middleband, lowerband = bbs(data['closes'])
+                if lowerband[-1] > float(data['close']):
+                    tree.set(symbol, column='bbs_signal', value='BUY')
+                tree.set(symbol, column='bbs_signal', value='HOLD')
+
+                if upperband[-1] < float(data['close']):
+                    tree.set(symbol, column='bbs_signal', value='SELL')
+                tree.set(symbol, column='bbs_signal', value='HOLD')
+
                 data['average_price'].append(average_price(data['opens'][-1], data['highs'][-1], data['lows'][-1], data['closes'][-1]))
                 data['closes'].pop(0)
                 data['highs'].pop(0)
                 data['lows'].pop(0)
                 data['opens'].pop(0)
+
 
             if len(data['average_price']) == average_number_kandle:
                 tree.set(symbol, column='twap', value=twap(data['average_price']))

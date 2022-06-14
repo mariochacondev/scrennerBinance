@@ -52,7 +52,8 @@ class Screener(tk.Frame):
         self._table_frame = tk.Frame(self, bg=BG_COLOR)
         self._table_frame.pack(side=tk.TOP)
 
-        self._headers = ['symbol', 'close', 'high', 'low', 'open', 'twap']
+        self._headers = ['symbol', 'close', 'high', 'low', 'open',
+                         'twap', 'fibo_382', 'bbs_signal']
 
         def fixed_map(option):
             return [elm for elm in style.map("Treeview", query_opt=option)
