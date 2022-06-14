@@ -1,13 +1,8 @@
 import tkinter as tk
 import tkinter.ttk as ttk
-import logging
 import time
 from functools import partial
-
 from interface.styling import *
-
-
-logger = logging.getLogger()
 
 
 class SortableTreeview(ttk.Treeview):
@@ -81,19 +76,17 @@ class Screener(tk.Frame):
         self.tree["columns"] = self._headers[1:]
 
         for col in self._headers[1:]:
-            self.tree.column(col, anchor='w', width=100)
+            self.tree.column(col, anchor='w', width=150)
             self.tree.heading(col, text=col.capitalize(), anchor='w', sort_by="num")
 
-        self.tree.column('#0', width=100)
+        self.tree.column('#0', width=130)
         self.tree.heading('#0', text="Symbol", anchor='w', sort_by="name")
-
 
         self.tree.bind('<Button-1>', self.handle_click)
 
         self.tree.pack(side=tk.TOP, pady=15)
 
         self.symbols = []
-        self.detached_symbols = []
 
     def handle_click(self, event):
         if self.tree.identify_region(event.x, event.y) == "separator":

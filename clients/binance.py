@@ -1,28 +1,19 @@
 import json
 import typing
-import logging
-from unicorn_binance_websocket_api.unicorn_binance_websocket_api_manager import BinanceWebSocketApiManager
-
-logger = logging.getLogger()
+from unicorn_binance_websocket_api.manager import BinanceWebSocketApiManager
 
 
 class BinanceWs:
-    def __init__(self, channels, symbols: typing.List[str]):
+    def __init__(self, symbols: typing.List[str]):
         self.market_data = dict()
         self.symbols = symbols
-
-
-        tf = 'kline_1m'
         self.binance_websocket_api_manager = BinanceWebSocketApiManager(exchange="binance.com-futures")
-        stream = self.binance_websocket_api_manager.create_stream(tf, self.symbols)
-        self.binance_websocket_api_manager.subscribe_to_stream(stream, channels, self.symbols)
-
+        self.stream_id = self.binance_websocket_api_manager.create_stream('kline_1m', self.symbols)
 
         for symbol in symbols:
-            self.market_data[symbol] = {'open': None, 'high': None, 'low': None, 'close': None, 'is_closed': bool}
-
-
-
+            self.market_data[symbol] = {'open': float(), 'high': float(), 'low': float(), 'close': float(),
+                                        'is_closed': bool, 'highs': list(), 'lows': list(), 'closes': list(),
+                                        'opens': list(), 'average_price': list()}
 
     def run(self, symbol):
         try:
@@ -33,18 +24,19 @@ class BinanceWs:
                 message = candle_data.get('k', {})
                 if message:
                     if str(symbol.upper()) == str(message.get('s')):
-                        self.market_data[symbol]['close'] = message.get('c')
-                        self.market_data[symbol]['high'] = message.get('h')
-                        self.market_data[symbol]['low'] = message.get('l')
-                        self.market_data[symbol]['open'] = message.get('o')
-                        self.market_data[symbol]['is_closed'] = message.get('x')
-                        print(message.get('s'), self.market_data[symbol])
-                pass
+                        self.market_data[symbol]['close'], \
+                        self.market_data[symbol]['high'], \
+                        self.market_data[symbol]['low'], \
+                        self.market_data[symbol]['open'], \
+                        self.market_data[symbol]['is_closed'] = message.get('c'), \
+                                                                message.get('h'), \
+                                                                message.get('l'), \
+                                                                message.get('o'), \
+                                                                message.get('x')
+            if self.binance_websocket_api_manager.binance_api_status['status_code'] is not None:
+                print(self.binance_websocket_api_manager.binance_api_status['status_code'])
 
+            stream_global = self.binance_websocket_api_manager.get_stream_statistic(self.stream_id)
+            print('RECEIVES PER SECOND', stream_global['stream_receives_per_second'])
         except Exception as e:
             print('run method error: ', e)
-
-
-
-
-
