@@ -21,11 +21,6 @@ class Root(tk.Tk):
         self._update_ui()  # Starts the infinite interface update loop
 
     def _ask_before_close(self):
-        """
-        Triggered when the user click on the Close button of the interface.
-        This lets you have control over what's happening just before closing the interface.
-        :return:
-        """
         result = askquestion("Confirmation", "Do you really want to exit the application?")
         if result == "yes":
             self.binance.binance_websocket_api_manager.stop_manager_with_all_streams()
@@ -33,12 +28,6 @@ class Root(tk.Tk):
             print(f'Closing Screener and Stream')
 
     def _update_ui(self):
-        """
-        Called by itself every 400 milliseconds. It is similar to an infinite loop but runs within the same Thread
-        as .mainloop() thanks to the .after() method, thus it is "thread-safe" to update elements of the interface
-        in this method. Do not update Tkinter elements from another Thread like a websocket thread.
-        :return:
-        """
         tree = self._screener_frame.tree
         max_samples = 2
         average_number_kandle = 5
@@ -62,50 +51,48 @@ class Root(tk.Tk):
             self.binance.run(symbol)
 
             if symbol not in self._screener_frame.symbols:
-                if data['high'] is not None:
-                    row_data = [data['close'], data['high'], data['low'], data['open'], "", "", ""]
+                if data.high is not None:
+                    row_data = [data.close, data.high, data.low, data.open, "", "", ""]
                     tree.insert("", tk.END, symbol, text=symbol.upper(), values=row_data)
                     self._screener_frame.symbols.append(symbol)
 
-            if data['is_closed'] is True:
-                tree.set(symbol, column='fibo_382', value=fibo_382(data['high'], data['low']))
-                if len(data['closes']) <= 2:
-                    data['closes'].append(data['close'])
-                if len(data['highs']) <= 2:
-                    data['highs'].append(data['high'])
-                if len(data['lows']) <= 2:
-                    data['lows'].append(data['low'])
-                if len(data['opens']) <= 2:
-                    data['opens'].append(data['open'])
+            if data.is_closed is True:
+                tree.set(symbol, column='fibo_382', value=fibo_382(data.high, data.low))
+                if len(data.closes) <= 2:
+                    data.closes.append(data.close)
+                if len(data.highs) <= 2:
+                    data.highs.append(data.high)
+                if len(data.lows) <= 2:
+                    data.lows.append(data.low)
+                if len(data.opens) <= 2:
+                    data.opens.append(data.open)
 
-            if len(data['closes']) and len(data['highs']) and len(data['lows']) and len(data['opens']) == max_samples:
-                upperband, middleband, lowerband = bbs(data['closes'])
-                if lowerband[-1] > float(data['close']):
+            if len(data.closes) and len(data.highs) and len(data.lows) and len(data.opens) == max_samples:
+                data.average_price.append(average_price(data.opens[-1], data.highs[-1], data.lows[-1], data.closes[-1]))
+                data.closes.pop(0)
+                data.highs.pop(0)
+                data.lows.pop(0)
+                data.opens.pop(0)
+
+            if len(data.average_price) == average_number_kandle:
+                tree.set(symbol, column='twap', value=twap(data.average_price))
+                data.average_price.pop(0)
+                upperband, middleband, lowerband = bbs(data.closes)
+                if lowerband[-1] > float(data.close):
                     tree.set(symbol, column='bbs_signal', value='BUY')
                 tree.set(symbol, column='bbs_signal', value='HOLD')
-
-                if upperband[-1] < float(data['close']):
+                if upperband[-1] < float(data.close):
                     tree.set(symbol, column='bbs_signal', value='SELL')
                 tree.set(symbol, column='bbs_signal', value='HOLD')
 
-                data['average_price'].append(average_price(data['opens'][-1], data['highs'][-1], data['lows'][-1], data['closes'][-1]))
-                data['closes'].pop(0)
-                data['highs'].pop(0)
-                data['lows'].pop(0)
-                data['opens'].pop(0)
 
-
-            if len(data['average_price']) == average_number_kandle:
-                tree.set(symbol, column='twap', value=twap(data['average_price']))
-                data['average_price'].pop(0)
-
-            tree.set(symbol, column='high', value=data['high'])
-            tree.set(symbol, column='low', value=data['low'])
-            tree.set(symbol, column='open', value=data['open'])
-            tree.set(symbol, column='close', value=data['close'])
-            print(f'{symbol}{data}')
+            tree.set(symbol, column='high', value=data.high)
+            tree.set(symbol, column='low', value=data.low)
+            tree.set(symbol, column='open', value=data.open)
+            tree.set(symbol, column='close', value=data.close)
+            print(f'{symbol}: {data}')
 
         if tree.last_sort is not None and time.time() - 1 > tree.last_auto_sort:
-            tree.sort_column(*tree.last_sort)  # Keep the last sorting
-            tree.last_auto_sort = time.time()  # Avoid sorting too often
+            tree.sort_column(*tree.last_sort)
+            tree.last_auto_sort = time.time()
         self.after(400, self._update_ui)
